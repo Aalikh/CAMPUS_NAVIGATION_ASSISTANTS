@@ -9,7 +9,7 @@ TERMINAL VERSION (no installation needed)
 
 FILES
   navigator.py  campus data + route-finding logic + SVG map + terminal mode
-  app.py        Streamlit web interface (themed, responsive)
+  app.py        Streamlit web interface (Aurora dark theme)
   .streamlit/config.toml  theme colours
 
 ADD YOUR REAL CAMPUS: edit NODES (buildings), EDGES (walkways + distance)

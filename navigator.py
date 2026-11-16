@@ -52,8 +52,9 @@ PLACES = {
 }
 
 CATEGORIES = ["All", "Academic Blocks", "Labs", "Student Facilities", "Admin"]
-COLORS = {"entry": "#0b1f3a", "plaza": "#64748b", "admin": "#475569",
-          "academic": "#2563eb", "labs": "#7c3aed", "student": "#0d9488"}
+COLORS = {"entry": "#ffd9a0", "plaza": "#a8a2c8", "admin": "#ffb4c8",
+          "academic": "#8ab4ff", "labs": "#d6a2ff", "student": "#7ef0d0"}
+ROUTE_COLOR = "#ffc58a"
 WALK_SPEED_M_PER_MIN = 70
 
 # ---------------------------------------------------------------- LOGIC
@@ -118,25 +119,31 @@ def get_directions(from_place, to_place):
 
 
 def map_svg(route_nodes):
-    """Labelled campus layout as an SVG string with the route highlighted."""
+    """Labelled campus layout (dark glass style) as an SVG string with a glowing route."""
     start, goal = route_nodes[0], route_nodes[-1]
     s = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="100%">',
-         '<rect width="600" height="400" rx="14" fill="#e6eef8"/>',
-         '<rect x="20" y="205" width="560" height="60" rx="30" fill="#fff" opacity=".55"/>']
+         '<style>.flow{animation:flow 1.4s linear infinite}@keyframes flow{to{stroke-dashoffset:-24}}'
+         '@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>',
+         '<defs><filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4" result="b"/>'
+         '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>',
+         '<rect x="1" y="1" width="598" height="398" rx="22" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.14)"/>']
     for a, b, *_ in EDGES:
         A, B = NODES[a], NODES[b]
-        s.append(f'<line x1="{A["x"]}" y1="{A["y"]}" x2="{B["x"]}" y2="{B["y"]}" stroke="#fff" stroke-width="12" stroke-linecap="round"/>')
+        s.append(f'<line x1="{A["x"]}" y1="{A["y"]}" x2="{B["x"]}" y2="{B["y"]}" stroke="rgba(255,255,255,0.12)" stroke-width="12" stroke-linecap="round"/>')
     for k, N in NODES.items():
-        ring = ' stroke="#f5a524" stroke-width="4"' if k in (start, goal) and len(route_nodes) > 1 else ""
-        s.append(f'<rect x="{N["x"]-46}" y="{N["y"]-19}" width="92" height="38" rx="10" fill="{COLORS[N["c"]]}"{ring}/>')
-        s.append(f'<text x="{N["x"]}" y="{N["y"]+4}" text-anchor="middle" font-family="Sora,Segoe UI,sans-serif" font-size="11" font-weight="600" fill="#fff">{escape(N["n"])}</text>')
+        col = COLORS[N["c"]]
+        on = k in (start, goal) and len(route_nodes) > 1
+        ring = f' stroke="{ROUTE_COLOR}" stroke-width="3" filter="url(#glow)"' if on else f' stroke="{col}" stroke-width="1.5"'
+        s.append(f'<rect x="{N["x"]-46}" y="{N["y"]-19}" width="92" height="38" rx="12" fill="{col}" fill-opacity="0.16"{ring}/>')
+        s.append(f'<text x="{N["x"]}" y="{N["y"]+4}" text-anchor="middle" font-family="Outfit,Segoe UI,sans-serif" font-size="11" font-weight="500" fill="#f1ecff">{escape(N["n"])}</text>')
     if len(route_nodes) > 1:
         pts = " ".join(f'{NODES[k]["x"]},{NODES[k]["y"]}' for k in route_nodes)
-        s.append(f'<polyline points="{pts}" fill="none" stroke="#f5a524" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>')
-        for k, label, col in ((start, "A", "#12a46e"), (goal, "B", "#f5a524")):
+        s.append(f'<polyline points="{pts}" fill="none" stroke="{ROUTE_COLOR}" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>')
+        s.append(f'<polyline class="flow" points="{pts}" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 18"/>')
+        for k, label, col in ((start, "A", "#7ef0d0"), (goal, "B", ROUTE_COLOR)):
             N = NODES[k]
-            s.append(f'<circle cx="{N["x"]+46}" cy="{N["y"]-19}" r="11" fill="{col}" stroke="#fff" stroke-width="2"/>')
-            s.append(f'<text x="{N["x"]+46}" y="{N["y"]-15}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">{label}</text>')
+            s.append(f'<circle cx="{N["x"]+46}" cy="{N["y"]-19}" r="11" fill="{col}"/>')
+            s.append(f'<text x="{N["x"]+46}" y="{N["y"]-15}" text-anchor="middle" font-family="Outfit,sans-serif" font-size="11" font-weight="700" fill="#1a1033">{label}</text>')
     s.append("</svg>")
     return "".join(s)
 
