@@ -1,16 +1,28 @@
-Campus Navigation Assistant - CODE STORM 2026 (Problem 1.3), Python version
+Campus Navigation Assistant - GPS edition (Python, Streamlit, Aurora theme)
 
-WEB APP (Streamlit)
+RUN
   pip install -r requirements.txt
   streamlit run app.py
+Terminal route finder:  python navigator.py
+Terminal GPS test:      python gps.py 12.2400 79.6500 "AI & DS Department Lab"
 
-TERMINAL VERSION (no installation needed)
-  python navigator.py
+GPS FEATURES
+  - Live location: the location button in the app reads the browser/phone GPS.
+  - Nearest building: matches your GPS fix to the closest campus building.
+  - Start from here: one tap sets your starting point to where you really are.
+  - "You" dot on the campus layout map.
+  - Distance + compass direction to the destination, and a Google Maps walking link.
+  - Off-campus detection (more than 250 m from every building).
+  - Demo mode: "Simulate a location" or paste coordinates, for indoor/offline demos.
+
+IMPORTANT NOTES
+  - Browsers only share GPS on HTTPS or localhost. On a phone, open the app through
+    Streamlit Community Cloud or an https tunnel (for example ngrok). A plain
+    http://192.168.x.x link will not give GPS.
+  - Replace the SAMPLE coordinates: set GPS_ORIGIN (Main Gate) in navigator.py, and for
+    best accuracy add "lat" and "lon" to each building in NODES (Google Maps: right-click
+    the building, copy the two numbers).
 
 FILES
-  navigator.py  campus data + route-finding logic + SVG map + terminal mode
-  app.py        Streamlit web interface (Aurora dark theme)
-  .streamlit/config.toml  theme colours
-
-ADD YOUR REAL CAMPUS: edit NODES (buildings), EDGES (walkways + distance)
-and PLACES (rooms, floors, cues) at the top of navigator.py.
+  app.py        web interface   |  navigator.py  campus data, routes, map
+  gps.py        GPS helpers     |  .streamlit/config.toml  theme

@@ -20,6 +20,15 @@ NODES = {
     "sci":   {"n": "Science Block", "b": "Block S (Science & Labs)","c": "labs",    "x": 410, "y": 38,  "lm": ["Garden", "Lab safety signboard"]},
 }
 
+# ---------------------------------------------------------------- GPS SETTINGS
+# Real-world anchor: the GPS position of the Main Gate (replace with your real campus
+# coordinates from Google Maps: right-click the gate > copy the two numbers).
+# Every building without its own "lat"/"lon" is placed from the map layout below.
+# For best accuracy, add "lat" and "lon" to each building in NODES.
+GPS_ORIGIN = {"node": "mg", "lat": 12.240000, "lon": 79.650000}
+METRES_PER_MAP_UNIT = 1.3          # how many metres one map unit (pixel) stands for
+OFF_CAMPUS_M = 250                 # farther than this from every building = off campus
+
 # Walkways: (from, to, directions from->to, directions to->from, metres)
 EDGES = [
     ("mg", "plaza", "Walk straight along Main Avenue until you reach the fountain at Central Plaza.", "Walk back down Main Avenue towards the Main Gate.", 150),
@@ -32,9 +41,18 @@ EDGES = [
     ("aids", "sci", "Go out the back door of Block A and cross the garden to Block S.", "Cross the garden back to Block A.", 90),
 ]
 
+
+import math as _m
+_o = NODES[GPS_ORIGIN["node"]]
+for _k, _N in NODES.items():
+    if "lat" not in _N:
+        _N["lat"] = GPS_ORIGIN["lat"] + (_o["y"] - _N["y"]) * METRES_PER_MAP_UNIT / 111320
+        _N["lon"] = GPS_ORIGIN["lon"] + (_N["x"] - _o["x"]) * METRES_PER_MAP_UNIT / (111320 * _m.cos(_m.radians(GPS_ORIGIN["lat"])))
+
 # Places: name -> building key, category, floor, room, what to look for
 PLACES = {
     "Main Gate":                 {"node": "mg",    "cat": "Entry",              "floor": 0, "room": "Gate cabin",           "cue": "Security cabin on your left"},
+    "Central Plaza":             {"node": "plaza", "cat": "Entry",              "floor": 0, "room": "Open plaza",          "cue": "Fountain in the middle, campus map board beside it"},
     "Administrative Office":     {"node": "admin", "cat": "Admin",              "floor": 0, "room": "Room AD-01",           "cue": "Reception desk just inside the entrance"},
     "Dean's Office":             {"node": "admin", "cat": "Admin",              "floor": 2, "room": "Room AD-205",          "cue": "Take the lift to Floor 2 and turn right"},
     "Examination Cell":          {"node": "admin", "cat": "Admin",              "floor": 1, "room": "Room AD-110",          "cue": "Next to the staircase on Floor 1"},
@@ -118,12 +136,12 @@ def get_directions(from_place, to_place):
     }
 
 
-def map_svg(route_nodes):
+def map_svg(route_nodes, you=None):
     """Labelled campus layout (dark glass style) as an SVG string with a glowing route."""
     start, goal = route_nodes[0], route_nodes[-1]
     s = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="100%">',
-         '<style>.flow{animation:flow 1.4s linear infinite}@keyframes flow{to{stroke-dashoffset:-24}}'
-         '@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>',
+         '<style>.flow{animation:flow 1.4s linear infinite}@keyframes flow{to{stroke-dashoffset:-24}}@keyframes pulse{from{r:7;opacity:.9}to{r:22;opacity:0}}.pulse{animation:pulse 1.6s ease-out infinite}'
+         '@media (prefers-reduced-motion:reduce){.flow,.pulse{animation:none}}</style>',
          '<defs><filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4" result="b"/>'
          '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>',
          '<rect x="1" y="1" width="598" height="398" rx="22" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.14)"/>']
@@ -144,6 +162,10 @@ def map_svg(route_nodes):
             N = NODES[k]
             s.append(f'<circle cx="{N["x"]+46}" cy="{N["y"]-19}" r="11" fill="{col}"/>')
             s.append(f'<text x="{N["x"]+46}" y="{N["y"]-15}" text-anchor="middle" font-family="Outfit,sans-serif" font-size="11" font-weight="700" fill="#1a1033">{label}</text>')
+    if you:
+        s.append(f'<circle class="pulse" cx="{you[0]:.0f}" cy="{you[1]:.0f}" r="7" fill="none" stroke="#6ee7ff" stroke-width="2"/>')
+        s.append(f'<circle cx="{you[0]:.0f}" cy="{you[1]:.0f}" r="7" fill="#6ee7ff" stroke="#fff" stroke-width="2.5"/>')
+        s.append(f'<text x="{you[0]:.0f}" y="{you[1]-14:.0f}" text-anchor="middle" font-family="Outfit,sans-serif" font-size="10" font-weight="600" fill="#6ee7ff">You</text>')
     s.append("</svg>")
     return "".join(s)
 
