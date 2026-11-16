@@ -2,8 +2,14 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from html import escape
-from navigator import (PLACES, CATEGORIES, COLORS, ROUTE_COLOR, places_in,
+from navigator import (PLACES, NODES, CATEGORIES, COLORS, ROUTE_COLOR, places_in,
                        get_directions, map_svg)
+import gps
+
+try:                                   # real browser GPS (pip install streamlit-geolocation)
+    from streamlit_geolocation import streamlit_geolocation
+except ImportError:
+    streamlit_geolocation = None
 
 st.set_page_config(page_title="Campus Navigation Assistant", page_icon="🧭", layout="wide")
 
@@ -35,6 +41,7 @@ html, body, [class*="css"], .stApp, .stApp p, .stApp label {font-family:'Outfit'
 .note {display:block;font-size:.84rem;color:#a99fd6;margin-top:3px;}
 .arrive {background:rgba(126,240,208,.10);border:1px solid rgba(126,240,208,.30);border-radius:16px;padding:12px 14px;}
 .arrive b {font-family:Fraunces,Georgia,serif;font-weight:500;font-size:1.05rem;}
+.gps-h {font-family:Fraunces,Georgia,serif;font-weight:500;font-size:1.3rem;color:#fbf8ff;margin:26px 0 6px;padding:0;}
 .legend span {display:inline-block;margin-right:16px;font-size:.82rem;color:#bfb3f2;}
 .legend i {display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;vertical-align:0;}
 /* widgets */
@@ -61,6 +68,10 @@ def swap():
     st.session_state.frm, st.session_state.to = st.session_state.to, st.session_state.frm
 
 
+def set_start(place):
+    st.session_state.frm = place
+
+
 st.write("")
 if hasattr(st, "pills"):
     cat = st.pills("Quick access", CATEGORIES, default="All", selection_mode="single") or "All"
@@ -77,6 +88,56 @@ c3.selectbox("I want to go to (type to search)", options, key="to")
 
 frm, to = st.session_state.frm, st.session_state.to
 d = get_directions(frm, to)
+
+# ------------------------------------------------------------------ GPS
+st.markdown('<h3 class="gps-h">Live GPS</h3>', unsafe_allow_html=True)
+fix = None                                                    # (lat, lon, accuracy)
+g1, g2 = st.columns([1, 2.2], gap="large", vertical_alignment="center")
+with g1:
+    st.markdown('<span class="note">Tap the button and allow location access.</span>', unsafe_allow_html=True)
+    if streamlit_geolocation:
+        raw = streamlit_geolocation()
+        if raw and raw.get("latitude") is not None:
+            fix = (raw["latitude"], raw["longitude"], raw.get("accuracy"))
+    else:
+        st.info("Install the GPS add-on: pip install streamlit-geolocation")
+    with st.expander("No GPS signal? Simulate a location"):
+        demo = st.selectbox("Pretend I am standing near", ["(off)"] + [n["n"] for n in NODES.values()], key="demo")
+        pasted = st.text_input("Or paste coordinates (lat, lon)", placeholder="12.2402, 79.6503")
+        if pasted and gps.parse_coordinates(pasted):
+            fix = (*gps.parse_coordinates(pasted), 10)
+        elif demo != "(off)":
+            node = next(n for n in NODES.values() if n["n"] == demo)
+            fix = (node["lat"] + 0.00004, node["lon"] + 0.00003, 10)   # a few metres from the building
+with g2:
+    if fix:
+        lat, lon, acc = fix
+        here = gps.locate(lat, lon, acc)
+        guide = gps.guidance(lat, lon, to)
+        h = '<div class="glass"><h3>Your position</h3>'
+        if here["on_campus"]:
+            h += f'<span class="fact">Near {escape(here["name"])}</span><span class="fact">{here["distance"]} m away</span>'
+        else:
+            h += f'<span class="fact">Off campus ({here["distance"]} m from the nearest building)</span>'
+        if acc is not None:
+            h += f'<span class="fact">GPS accuracy about {round(acc)} m</span>'
+        h += '<div style="height:6px"></div>'
+        if here["weak"]:
+            h += '<span class="note">Weak signal. Move outdoors for a better fix.</span>'
+        if guide["arrived"]:
+            h += f'<div class="arrive"><b>You have reached {escape(to)}.</b></div>'
+        else:
+            h += f'<div>{escape(to)} is about <b>{guide["metres"]} m</b> to the <b>{guide["direction"]}</b> of you.</div>'
+        st.markdown(h + "</div>", unsafe_allow_html=True)
+        b1, b2 = st.columns(2)
+        label = f"Start from {here['place']}" if here["on_campus"] else "Start from Main Gate"
+        b1.button(label, on_click=set_start, args=(here["place"],), use_container_width=True)
+        b2.link_button("Open in Google Maps", guide["maps_url"], use_container_width=True)
+    else:
+        st.markdown('<div class="glass"><h3>Where am I?</h3>Allow location access, or simulate a location, and the app finds the nearest building, '
+                    'shows a "You" dot on the map and starts your route from there. Browsers only share GPS on HTTPS or localhost.</div>',
+                    unsafe_allow_html=True)
+you = gps.to_map_xy(fix[0], fix[1]) if fix else None
 st.write("")
 
 left, right = st.columns([1, 1.1], gap="large")
@@ -104,7 +165,7 @@ with right:
         "h3{font-family:Fraunces,Georgia,serif;font-weight:500;font-size:1.3rem;margin:4px 4px 12px}"
         ".legend span{display:inline-block;margin-right:16px;font-size:13px;color:#bfb3f2}"
         ".legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px}</style>"
-        f'<h3>Campus layout</h3>{map_svg(d["nodes"])}<div class="legend" style="padding:12px 4px">{legend}</div>',
+        f'<h3>Campus layout</h3>{map_svg(d["nodes"], you=you)}<div class="legend" style="padding:12px 4px">{legend}</div>',
         height=470)
 
 st.caption("Sample data for the prototype. Edit NODES, EDGES and PLACES in navigator.py to use your real campus.")
